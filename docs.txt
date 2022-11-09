@@ -1,0 +1,67 @@
+I. Hướng dẫn cài đặt ban đầu:
+1. Cài đặt tmux (nếu chưa có): tmux để chạy nền tool bằng terminal 
+	CentOS: yum install tmux (sudo yum install tmux - Trong trường hợp tài khoản ko phải là root)
+	Linux: apt install tmux (sudo apt install tmux - Trong trường hợp tài khoản ko phải là root)
+
+2. Cài đặt python 3.9 cho CentOS:
+	- Làm theo hướng dẫn tại mục "Option 2: Install Python From Source Code"
+	link: https://phoenixnap.com/kb/how-to-install-python-3-centos-7?fbclid=IwAR2FgMZrlo73jsOpUf-J1BbQ2CcNxQcoN8H_E2rR5GJYuLy2C53KwHhMOo4
+
+3. Giải nén series9_done.zip thành folder series9_done và copy folder lên vps
+4. Bật terminal, cd vào folder series9_done
+	Nếu có GUI: Mở folder series9_done -> chuột phải -> Open terminal here
+	Ko có GUI: ví dụ folder series9_done nằm theo đường dẫn: /root/www/series9_done
+	Chạy lệnh: cd /root/www/series9_done
+5. Cài đặt lần đầu nhằm chạy tool. Chạy các lệnh theo thứ tự:
+	- python3.9 -m venv venv 
+
+	- source venv/bin/activate 
+		(.\venv\Scripts\activate dành cho window)
+	  	Ví dụ kết quả sau khi chạy lệnh thành công: (venv) devil@Duongs-MacBook-Pro series9_done % 
+		Xuất hiện (venv) ở phía trước
+
+	- pip install -r requirements.txt
+II. Hướng dẫn sử dụng tmux cơ bản:
+	tmux list		- liệt kê các sessions tmux đang chạy
+	tmux new -s tupdate	- Tạo 1 session tmux mới với tên session là "tupdate"
+	tmux a -t tupdate		- Truy cập vào tmux session với tên "tupdate" khi đang ở terminal chính
+	
+	Phím tắt: 
+		Ctrl+B D		- Ẩn tmux session đang sử dụng (truy cập về terminal chính của vps)
+		(Giữ phím Ctrl sau đó ấn phím B, buông cả 2 phím và bấm phím D)
+
+III. Hướng dẫn config trước khi chạy tool:
+
+   Config bằng cách sửa file settings.py trong folder series9_done
+	- Mở file settings.py bằng text editor bất kỳ (vs code, notepad, nano, vim, vi,...)
+	- Sửa các thuộc tính sẵn có theo nhu cầu (Nên xem trước file settings.py này)
+	  
+
+IV. Hướng dẫn chạy tool lần đầu khi chưa có session tmux đang chạy:
+
+    Tool gồm có 4 bản chạy nhỏ nhằm chạy theo nhu cầu:
+        - tvseries_update.py : chỉ crawl tv series từ trang latest của series9 
+        - tvseries_crawl.py  : crawl tất cả tv series từ các trang còn lại của series9 (từ last page trong settings về page 2)
+
+        - movies_update.py : chỉ crawl movies từ trang latest của series9 
+        - movies_crawl.py  : crawl tất cả movies từ các trang còn lại của series9 (từ last page trong settings về page 2)
+
+    Ví dụ hướng dẫn chạy tvseries_update.py
+	- tmux new -s tupdate (tupdate = tvseries_update, tên này có thể đặt tuỳ thích)
+	- cd vào folder series9_done ( Lệnh giống bước 3)
+	- source venv/bin/activate
+	- python tvseries_update.py
+	- Ẩn session tmux: Ctrl+B D
+	- Sau khi ẩn hoàn toàn có thể tắt terminal (kể cả ssh và aapanel, cpanel,...)
+
+	- Để kiểm tra xem tool khi cần thiết:
+		+ Mở terminal
+		+ Truy cập vào session tupdate: tmux a -t tupdate
+		+ Kiểm tra trạng thái theo nhu cầu
+
+	- Chạy lại tool khi cần thiết:
+		+ Mở terminal
+		+ Truy cập vào session tupdate: tmux a -t tupdate
+		+ Bấm Ctrl+C vài lần
+		+ Chạy lệnh: python tvseries_update.py
+
