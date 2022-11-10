@@ -4,9 +4,10 @@ from bs4 import BeautifulSoup
 from time import sleep
 
 
-from settings import CONFIG
-from helper import helper
 from _db import database
+from helper import helper
+from settings import CONFIG
+from psyplay import PsyPlay
 
 logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=logging.INFO)
 
@@ -56,99 +57,6 @@ class Crawler_Site:
 
         return res
 
-    def crawl_episodes(
-        self,
-        post_id,
-        post_type,
-        watching_href,
-        post_title,
-        season_number,
-        fondo_player,
-        poster_url,
-        quality,
-    ):
-        episodes_data = self.get_episodes_data(watching_href)
-
-        lenEpisodes = len(episodes_data.keys())
-        for episode_number, episode in episodes_data.items():
-            # for i in range(lenEpisodes):
-            if (post_type == "tvshows") or (lenEpisodes > 1):
-                if post_type == "post":
-                    if (episode_number == "0") or (episode_number == 0):
-                        episode_number = "100"
-
-                    database.update_table(
-                        table=f"{CONFIG.TABLE_PREFIX}posts",
-                        set_cond=f'post_type="tvshows"',
-                        where_cond=f"ID={post_id}",
-                    )
-
-                    database.update_table(
-                        table=f"{CONFIG.TABLE_PREFIX}postmeta",
-                        set_cond=f'meta_key="serie_vote_average"',
-                        where_cond=f'post_id={post_id} AND meta_key="imdbRating"',
-                    )
-
-                    database.update_table(
-                        table=f"{CONFIG.TABLE_PREFIX}postmeta",
-                        set_cond=f'meta_key="episode_run_time"',
-                        where_cond=f'post_id={post_id} AND meta_key="Runtime"',
-                    )
-
-                    tvseries_postmeta_data = [
-                        (post_id, "next-ep", ""),
-                        (post_id, "tv_eps_num", ""),
-                        (post_id, "temporadas", "0"),
-                        (post_id, "_temporadas", "field_58718d88c2bf9"),
-                    ]
-
-                    for row in tvseries_postmeta_data:
-                        database.insert_into(
-                            table=f"{CONFIG.TABLE_PREFIX}postmeta",
-                            data=row,
-                        )
-
-                episode_title = (
-                    f"{post_title} Season {season_number} Episode {episode_number}"
-                )
-
-                condition = f'post_title = "{episode_title}"'
-                be_post = database.select_all_from(
-                    table=f"{CONFIG.TABLE_PREFIX}posts", condition=condition
-                )
-                if be_post:
-                    continue
-
-                episode_data = helper.generate_episode_data(
-                    post_id,
-                    episode["title"],
-                    season_number,
-                    episode_number,
-                    post_title,
-                    fondo_player,
-                    poster_url,
-                    quality,
-                    episode["links"],
-                )
-
-                helper.insert_episode(episode_data)
-            else:
-                players = helper.get_players_iframes(episode["links"])
-                postmeta_data = [
-                    (post_id, "player", str(len(players))),
-                    (post_id, "_player", "field_5640ccb223222"),
-                ]
-                postmeta_data.extend(
-                    helper.generate_players_postmeta_data(post_id, players, quality)
-                )
-
-                for row in postmeta_data:
-                    database.insert_into(
-                        table=f"{CONFIG.TABLE_PREFIX}postmeta",
-                        data=row,
-                    )
-                    sleep(0.1)
-
     def crawl_film(self, href: str, post_type: str = "tvshows"):
         soup = self.crawl_soup(href)
 
@@ -166,45 +74,24 @@ class Crawler_Site:
         extra_info = helper.get_extra_info(soup)
 
         if not title:
-            helper.error_log(msg=f"No title was found\n{href}", log_file="no_title.log")
+            helper.error_log(
+                msg=f"No title was found\n{href}", log_file="base.no_title.log"
+            )
             return
 
-        if post_type == "tvshows":
-            post_title, season_number = helper.get_title_and_season_number(title)
-        else:
-            post_title = title
-            season_number = "1"
+        film_data = {
+            "title": title,
+            "description": description,
+            "post_type": post_type,
+            "trailer_id": trailer_id,
+            "fondo_player": fondo_player,
+            "poster_url": poster_url,
+            "extra_info": extra_info,
+        }
 
-        condition = f'post_title = "{post_title}" AND post_type="{post_type}"'
-        be_post = database.select_all_from(
-            table=f"{CONFIG.TABLE_PREFIX}posts", condition=condition
-        )
-        if not be_post:
+        episodes_data = self.get_episodes_data(watching_href)
 
-            post_data = helper.generate_post_data(
-                post_title,
-                description,
-                post_type,
-                trailer_id,
-                fondo_player,
-                poster_url,
-                extra_info,
-            )
-
-            post_id = helper.insert_film(post_data)
-        else:
-            post_id = be_post[0][0]
-
-        self.crawl_episodes(
-            post_id,
-            post_type,
-            watching_href,
-            post_title,
-            season_number,
-            fondo_player,
-            poster_url,
-            extra_info["Quality"],
-        )
+        PsyPlay(film_data, episodes_data).insert_film()
 
     def crawl_page(self, url, post_type: str = "tvshows"):
 
@@ -232,15 +119,17 @@ class Crawler_Site:
 
 
 if __name__ == "__main__":
-    # Crawler_Site().crawl_page(CONFIG.SERIES9_MOVIES_LATEST_PAGE)
+    Crawler_Site().crawl_page(
+        "https://series9.la/movie/filter/movie/all/all/all/all/latest/?page=599", "post"
+    )
     # Crawler_Site().crawl_episodes(
     #     1, "https://series9.la/film/country-queen-season-1/watching.html", "", "", ""
     # )
 
     # Crawler_Site().crawl_film("https://series9.la/film/the-masked-dancer-season-2-uk")
-    Crawler_Site().crawl_film(
-        "https://series9.la/film/the-curse-of-oak-island-season-10"
-    )
+    # Crawler_Site().crawl_film(
+    #     "https://series9.la/film/the-curse-of-oak-island-season-10"
+    # )
     # Crawler_Site().crawl_film("https://series9.la//film/crossing-lines-season-3-wds")
 
     # Crawler_Site().crawl_film(

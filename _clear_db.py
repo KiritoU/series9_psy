@@ -37,7 +37,7 @@ def main():
         "seasons",
         "attachment",
         "movies",
-        "revision",
+        # "revision",
     ]
     for post_type in post_types:
         post_ids = database.select_all_from(

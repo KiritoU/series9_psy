@@ -40,6 +40,9 @@ class Helper:
         return slug.replace("’", "").replace("'", "")
 
     def add_https_to(self, url: str) -> str:
+        if not url:
+            return url
+
         if "http" not in url:
             url = "https:" + url
 
@@ -74,7 +77,7 @@ class Helper:
         except Exception as e:
             self.error_log(
                 msg=f"Failed to find watching_href and fondo_player\n{str(soup)}\n{e}",
-                log_file="watching_href.log",
+                log_file="helper.get_watching_href_and_fondo.log",
             )
             return ["", ""]
 
@@ -88,24 +91,26 @@ class Helper:
         return res
 
     def get_title_and_season_number(self, series9_title: str) -> list:
+        title = series9_title
+        season_number = "1"
+
         try:
-            title = series9_title
-            season_number = "1"
 
             for seasonSplitText in CONFIG.SEASON_SPLIT_TEXTS:
                 if seasonSplitText in series9_title:
                     title, season_number = series9_title.split(seasonSplitText)
                     break
 
-            return [
-                self.format_text(title),
-                self.get_season_number(self.format_text(season_number)),
-            ]
         except Exception as e:
             self.error_log(
                 msg=f"Failed to find title and season number\n{series9_title}\n{e}",
                 log_file="helper.get_title_and_season_number.log",
             )
+
+        return [
+            self.format_text(title),
+            self.get_season_number(self.format_text(season_number)),
+        ]
 
     def get_title_and_description(self, soup: BeautifulSoup) -> list:
         try:
@@ -120,7 +125,7 @@ class Helper:
         except Exception as e:
             self.error_log(
                 msg=f"Failed to find title and description\n{str(soup)}\n{e}",
-                log_file="title_desc.log",
+                log_file="helper.get_title_and_description.log",
             )
             return ["", ""]
 
@@ -138,7 +143,7 @@ class Helper:
         except Exception as e:
             self.error_log(
                 msg=f"Failed to get poster URL\n{str(soup)}\n{e}",
-                log_file="poster_url.log",
+                log_file="helper.get_poster_url.log",
             )
             return ""
 
@@ -173,6 +178,7 @@ class Helper:
         return res
 
     def get_extra_info(self, soup: BeautifulSoup) -> dict:
+        mvici_data = {}
         try:
             mvi_content = soup.find("div", class_="mvi-content")
             mvic_desc = mvi_content.find("div", class_="mvic-desc")
@@ -184,15 +190,16 @@ class Helper:
             mvici_right_data = self.get_right_data(mvici_right)
 
             mvici_data = {**mvici_left_data, **mvici_right_data}
-            return mvici_data
 
         except Exception as e:
             self.error_log(
                 msg=f"Failed to get extra info\n{str(soup)}\n{e}",
-                log_file="extra_info.log",
+                log_file="helper.get_extra_info.log",
             )
 
-    def generate_post_data(
+        return mvici_data
+
+    def generate_film_data(
         self,
         title,
         description,
@@ -208,16 +215,31 @@ class Helper:
             "post_type": post_type,
             # "id": "202302",
             "youtube_id": f"[{trailer_id}]",
-            "serie_vote_average": extra_info["IMDb"],
-            "episode_run_time": extra_info["Duration"],
+            # "serie_vote_average": extra_info["IMDb"],
+            # "episode_run_time": extra_info["Duration"],
             "fondo_player": fondo_player,
             "poster_url": poster_url,
-            "category": extra_info["Genre"],
-            "stars": extra_info["Actor"],
-            "director": extra_info["Director"],
-            "release-year": [extra_info["Release"]],
-            "country": extra_info["Country"],
+            # "category": extra_info["Genre"],
+            # "stars": extra_info["Actor"],
+            # "director": extra_info["Director"],
+            # "release-year": [extra_info["Release"]],
+            # "country": extra_info["Country"],
         }
+
+        key_mapping = {
+            "IMDb": "serie_vote_average",
+            "Duration": "episode_run_time",
+            "Genre": "category",
+            "Actor": "stars",
+            "Director": "director",
+            "Country": "country",
+        }
+
+        for info_key in ["IMDb", "Duration", "Genre", "Actor", "Director", "Country"]:
+            if info_key in extra_info.keys():
+                post_data[key_mapping[info_key]] = extra_info[info_key]
+        if "Release" in extra_info.keys():
+            post_data["release-year"] = [extra_info["Release"]]
 
         return post_data
 
@@ -244,8 +266,8 @@ class Helper:
 
         episode_data = {
             "post_id": post_id,
-            "title": f"{post_title} Season {season_number} Episode {episode_number}",
-            "description": "",
+            "title": episode_name,
+            "description": CONFIG.EPISODE_DEFAULT_DESCRIPTION.format(post_title),
             "post_type": "episodes",
             # "ids": "202302",
             "season_number": season_number,
@@ -395,11 +417,7 @@ class Helper:
             else:
                 postmeta_data.extend(movie_postmeta_data)
 
-            for row in postmeta_data:
-                database.insert_into(
-                    table=f"{CONFIG.TABLE_PREFIX}postmeta",
-                    data=row,
-                )
+            self.insert_postmeta(postmeta_data)
 
             for taxonomy in CONFIG.TAXONOMIES:
                 if taxonomy in post_data.keys() and post_data[taxonomy]:
@@ -461,21 +479,21 @@ class Helper:
 
     def insert_episode(self, episode_data: dict):
         season_number = int(episode_data["season_number"])
-        episode_number = int(episode_data["episode_number"])
+        episode_number = episode_data["episode_number"]
 
         episode_id = self.insert_post(episode_data)
         players = episode_data["players"]
         temporadas_episodios = (
-            f"temporadas_{season_number-1}_episodios_{episode_number-1}"
+            f"temporadas_{season_number-1}_episodios_{episode_number}"
         )
 
         postmeta_data = [
             # (episode_id, "ids", episode_data["ids"]),
             (episode_id, "temporada", season_number),
-            (episode_id, "episodio", episode_number),
+            (episode_id, "episodio", episode_number + 1),
             (episode_id, "serie", episode_data["serie"]),
             (episode_id, "season_number", season_number),
-            (episode_id, "episode_number", episode_number),
+            (episode_id, "episode_number", episode_number + 1),
             (episode_id, "name", episode_data["name"]),
             # (episode_id, "air_date", episode_data["air_date"]),
             (episode_id, "fondo_player", episode_data["fondo_player"]),
@@ -517,7 +535,7 @@ class Helper:
             self.update_meta_key(
                 post_id=episode_data["post_id"],
                 meta_key=f"temporadas_{season_number - 1}_episodios",
-                update_value=episode_number,
+                update_value=episode_number + 1,
                 field="field_58718dabc2bfa",
             )
         )
@@ -533,9 +551,17 @@ class Helper:
                 table=f"{CONFIG.TABLE_PREFIX}postmeta",
                 data=row,
             )
-            sleep(0.1)
+            sleep(0.01)
 
-        sleep(0.1)
+        sleep(0.01)
+
+    def insert_postmeta(self, postmeta_data):
+        for row in postmeta_data:
+            database.insert_into(
+                table=f"{CONFIG.TABLE_PREFIX}postmeta",
+                data=row,
+            )
+            sleep(0.01)
 
 
 helper = Helper()
