@@ -39,7 +39,7 @@ class PsyPlay:
 
         helper.insert_postmeta(postmeta_data)
 
-    def insert_root_film(self) -> int:
+    def insert_root_film(self) -> list:
         condition_post_title = self.film["post_title"].replace("'", "''")
         condition = f"""post_title = '{condition_post_title}' AND post_type='{self.film["post_type"]}'"""
         be_post = database.select_all_from(
@@ -57,11 +57,9 @@ class PsyPlay:
                 self.film["extra_info"],
             )
 
-            post_id = helper.insert_film(post_data)
+            return [helper.insert_film(post_data), True]
         else:
-            post_id = be_post[0][0]
-
-        return post_id
+            return [be_post[0][0], False]
 
     def insert_episodes(self, post_id):
         episodes_keys = list(self.episodes.keys())
@@ -105,9 +103,10 @@ class PsyPlay:
         if len(self.episodes) > 1:
             self.film["post_type"] = "tvshows"
 
-        post_id = self.insert_root_film()
+        post_id, isNewPostInserted = self.insert_root_film()
 
         if self.film["post_type"] != "tvshows":
-            self.insert_movie_details(post_id)
+            if isNewPostInserted:
+                self.insert_movie_details(post_id)
         else:
             self.insert_episodes(post_id)
