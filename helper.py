@@ -3,6 +3,7 @@ import requests
 
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+from pathlib import Path
 from slugify import slugify
 from time import sleep
 
@@ -27,6 +28,7 @@ class Helper:
 
     def error_log(self, msg: str, log_file: str = "failed.log"):
         datetime_msg = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        Path("log").mkdir(parents=True, exist_ok=True)
         with open(f"log/{log_file}", "a") as f:
             print(f"{datetime_msg} LOG:  {msg}\n{'-' * 80}", file=f)
 
