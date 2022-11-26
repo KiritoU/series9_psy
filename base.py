@@ -99,11 +99,11 @@ class Crawler_Site:
 
         movies_list = soup.find("div", class_="movies-list")
         if not movies_list:
-            return
+            return 0
 
         ml_items = movies_list.find_all("div", class_="ml-item")
         if not ml_items:
-            return
+            return 0
 
         for item in ml_items:
             try:
@@ -116,6 +116,8 @@ class Crawler_Site:
 
             except Exception as e:
                 helper.error_log(f"Failed to get href\n{item}\n{e}", "page.log")
+
+        return 1
 
 
 if __name__ == "__main__":

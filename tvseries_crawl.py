@@ -6,14 +6,19 @@ from base import Crawler_Site
 
 logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=logging.INFO)
 
-UPDATE = Crawler_Site()
+crawler = Crawler_Site()
 
 if __name__ == "__main__":
-    pages = CONFIG.SERIES9_TVSERIES_LAST_PAGE
+    i = 2
     while True:
-        for i in range(pages, 1, -1):
-            try:
-                UPDATE.crawl_page(f"{CONFIG.SERIES9_TVSERIES_LATEST_PAGE}?page={i}")
-            except Exception as e:
-                pass
-            time.sleep(CONFIG.WAIT_BETWEEN_ALL)
+        try:
+            crawled_page = crawler.crawl_page(
+                f"{CONFIG.SERIES9_TVSERIES_LATEST_PAGE}?page={i}"
+            )
+            if not crawled_page:
+                i = 2
+            else:
+                i += 1
+        except Exception as e:
+            pass
+        time.sleep(CONFIG.WAIT_BETWEEN_ALL)
