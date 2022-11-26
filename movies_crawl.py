@@ -16,7 +16,7 @@ if __name__ == "__main__":
                 f"{CONFIG.SERIES9_MOVIES_LATEST_PAGE}?page={i}",
                 post_type="post",
             )
-            if not crawled_page:
+            if not crawled_page and i >= CONFIG.SERIES9_MOVIES_LATEST_PAGE:
                 i = 2
             else:
                 i += 1
